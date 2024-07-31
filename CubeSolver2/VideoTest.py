@@ -1,8 +1,8 @@
 import cv2
 
 def main():
-    cap1 = cv2.VideoCapture(0)
-    cap2 = cv2.VideoCapture(1)
+    cap1 = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap2 = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
     if not cap1.isOpened() or not cap2.isOpened():
         print("Error: Could not open one or both cameras.")

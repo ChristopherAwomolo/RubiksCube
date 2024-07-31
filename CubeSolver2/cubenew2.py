@@ -118,6 +118,12 @@ solution=[]
 solved=False
 
 cap=cv2.VideoCapture(0, cv2.CAP_DSHOW)
+#cap.set(cv2.CAP_PROP_BRIGHTNESS, 100)
+#cap.set(cv2.CAP_PROP_CONTRAST, 100)
+cap.set(cv2.CAP_PROP_SATURATION, 200)
+#cap.set(cv2.CAP_PROP_HUE, 100)
+#cap.set(cv2.CAP_PROP_GAIN, 100)
+#cap.set(cv2.CAP_PROP_EXPOSURE, 100)
 cv2.namedWindow('frame')
 
 def rotate(side):
