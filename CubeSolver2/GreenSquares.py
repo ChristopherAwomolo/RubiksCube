@@ -6,7 +6,6 @@ import json
 all_quadrilaterals = []
 current_points = []
 
-
 # Define the callback function for mouse events
 def mouse_callback(event, x, y, flags, param):
     global current_points, all_quadrilaterals
@@ -18,9 +17,8 @@ def mouse_callback(event, x, y, flags, param):
             all_quadrilaterals.append(current_points)
             current_points = []
 
-
 def draw_quadrilaterals(frame):
-    # Draw all stored quadrilaterals on the frame
+    # Draw all stored quadrilaterals on the frame for visualization
     for quadrilateral in all_quadrilaterals:
         cv2.polylines(frame, [np.array(quadrilateral)], isClosed=True, color=(0, 255, 0), thickness=2)
 
@@ -55,8 +53,8 @@ def load_quadrilaterals():
         all_quadrilaterals = []
 
 
-# Capture video from webcam
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Change the argument to 0 for webcam, or 'your_video_file.mp4' for a video file
+# Capture video from webcam using DirectShow
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Change the argument to 'your_video_file.mp4' for a video file
 
 # Create a window and set the mouse callback function
 cv2.namedWindow("Video")
@@ -71,11 +69,14 @@ while True:
     if not ret:
         break
 
-    # Draw the quadrilaterals on the frame
-    draw_quadrilaterals(frame)
+    # Create a copy of the frame for visualization
+    vis_frame = frame.copy()
 
-    # Display the frame
-    cv2.imshow("Video", frame)
+    # Draw the quadrilaterals on the copy for visualization
+    draw_quadrilaterals(vis_frame)
+
+    # Display the visualization frame
+    cv2.imshow("Video", vis_frame)
 
     # Check for key presses
     key = cv2.waitKey(1) & 0xFF
