@@ -29,7 +29,7 @@ class Rubic_Cube():
                      vector(-1, -1.5, 0), vector(0, -1.5, 0), vector(1, -1.5, 0),
                      vector(-1, -1.5, 1), vector(0, -1.5, 1), vector(1, -1.5, 1), ],
                     ]
-        colors = [vector(1,0,0),vector(1,1,0),vector(1,0.5,0),vector(1,1,1),vector(0,0,1),vector(0,1,0)]
+        colors = [vector(1,0,0),vector(1,1,0),vector(1,0.5,0),vector(1,1,1),vector(0,0,1),vector(0,1,0)] #red, yellow, orange,white,blue, green
         angle = [(0,vector(0,0,0)),(np.pi/2,vector(0,1,0)),(0,vector(0,0,0)),(np.pi/2,vector(0,1,0)),(np.pi/2,vector(1,0,0)),(np.pi/2,vector(1,0,0))]
         #sides
         for rank,side in enumerate(tile_pos):
