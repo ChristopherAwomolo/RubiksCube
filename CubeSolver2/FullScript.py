@@ -11,10 +11,12 @@ import imutils
 import time
 import joblib
 import colorsys
-
+import random
+import kociemba
 '''
 To do list (easiest to hardest)
 
+-Add more training data
 -Make the GUI scalable and include a fullscreen in the dialog
 -Make the waiting screens work for generating steps and solving the cube (not click based)
 -Scrap current cube + make another cube which visualises the faces from the webcam
@@ -167,7 +169,6 @@ class OpenGLWidget(QtWidgets.QOpenGLWidget):
             self.zoom /= 1.1
         self.update()
 
-
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         self.settingCameraOption = "Camera1"
@@ -214,67 +215,13 @@ class Ui_Dialog(object):
         self.cam1faces= ['F', 'L', 'D']
         self.cam2faces = ['U','R']
         self.colors.sort()
+        self.total_squares_per_color = 9  # Each color should appear exactly 9 times
 
-        self.polygons =  {
-                'F1': (216, 163, 21, 15),
-                'F2': (278, 147, 19, 18),
-                'F3': (324, 139, 19, 15),
-                'F4': (273, 175, 24, 18),
-                'F5': (331, 163, 23, 18),
-                'F6': (381, 149, 18, 17),
-                'F7': (334, 201, 26, 17),
-                'F8': (401, 180, 23, 22),
-                'F9': (447, 167, 20, 17),
+        with open("Polygons.txt", "r") as file:
+            dict_str = file.read()
 
-                'L1': (183, 198, 23, 29),
-                'L2': (235, 221, 28, 32),
-                'L3': (302, 243, 29, 37),
-                'L4': (180, 272, 28, 31),
-                'L5': (239, 299, 26, 35),
-                'L6': (296, 325, 34, 42),
-                'L7': (187, 343, 22, 34),
-                'L8': (237, 374, 28, 30),
-                'L9': (295, 396, 35, 46),
+        self.polygons = eval(dict_str)
 
-                'D1': (370, 242, 33, 39),
-                'D2': (430, 229, 24, 27),
-                'D3': (475, 210, 20, 27),
-                'D4': (362, 332, 31, 32),
-                'D5': (420, 301, 26, 32),
-                'D6': (464, 280, 20, 27),
-                'D7': (357, 409, 32, 34),
-                'D8': (414, 373, 25, 28),
-                'D9': (455, 346, 22, 28),
-
-                'U1': (321, 192, 31, 34),
-                'U2': (372, 163, 26, 30),
-                'U3': (412, 144, 23, 28),
-                'U4': (329, 271, 31, 34),
-                'U5': (375, 243, 28, 28),
-                'U6': (417, 214, 21, 26),
-                'U7': (336, 354, 31, 31),
-                'U8': (381, 314, 28, 30),
-                'U9': (416, 279, 25, 32),
-
-                'R1': (122, 175, 34, 33),
-                'R2': (176, 184, 39, 42),
-                'R3': (249, 202, 38, 39),
-                'R4': (141, 252, 31, 34),
-                'R5': (195, 263, 39, 42),
-                'R6': (259, 273, 51, 55),
-                'R7': (148, 325, 40, 41),
-                'R8': (207, 340, 39, 42),
-                'R9': (272, 349, 46, 52)
-        }
-
-        self.color_map = {
-            'B': 'blue',
-            'G': 'green',
-            'O': 'orange',
-            'R': 'red',
-            'W': 'white',
-            'Y': 'yellow'
-        }
 
     def get_dominant_hsv(self, img):
         average = img.mean(axis=0).mean(axis=0)
@@ -372,6 +319,16 @@ class Ui_Dialog(object):
         self.R7.setStyleSheet(color_mapping[self.colors[label_to_predict['R7']]])
         self.R8.setStyleSheet(color_mapping[self.colors[label_to_predict['R8']]])
         self.R9.setStyleSheet(color_mapping[self.colors[label_to_predict['R9']]])
+
+        self.B1.setStyleSheet(color_mapping[self.colors[label_to_predict['B1']]])
+        self.B2.setStyleSheet(color_mapping[self.colors[label_to_predict['B2']]])
+        self.B3.setStyleSheet(color_mapping[self.colors[label_to_predict['B3']]])
+        self.B4.setStyleSheet(color_mapping[self.colors[label_to_predict['B4']]])
+        self.B5.setStyleSheet(color_mapping[self.colors[label_to_predict['B5']]])
+        self.B6.setStyleSheet(color_mapping[self.colors[label_to_predict['B6']]])
+        self.B7.setStyleSheet(color_mapping[self.colors[label_to_predict['B7']]])
+        self.B8.setStyleSheet(color_mapping[self.colors[label_to_predict['B8']]])
+        self.B9.setStyleSheet(color_mapping[self.colors[label_to_predict['B9']]])
 
     def setupScreen1(self, screen):
         self.openGLWidget = OpenGLWidget(screen)  # Use the OpenGLWidget subclass
@@ -1060,6 +1017,28 @@ class Ui_Dialog(object):
         self.controlTimer()
         self.stackedWidget.setCurrentWidget(self.screen2)
 
+    def solveCube(self, cube_dict):
+        color_to_face = {}
+        cube_dict_initials = {}
+        for key, value in cube_dict.items():
+            cube_dict_initials[key] = self.colors[value][0]
+            if key.endswith('5'):  # This identifies the center pieces
+                color_to_face[self.colors[value]] = key[0]
+        face_order = self.cam1faces + self.cam2faces #['U', 'R', 'F', 'D', 'L', 'B']
+        cube_string = ''
+        for face in face_order:
+            for i in range(1, 10):  # 1 to 9
+                key = f'{face}{i}'
+                color = cube_dict_initials[key]
+                cube_string += color_to_face[color]
+        print(f"Cube string: {cube_string}")
+        try:
+            solution = kociemba.solve(cube_string)
+            print(f"Solution: {solution}")
+        except ValueError as e:
+            print(f"Error: {e}")
+            print("The cube configuration might be invalid or unsolvable.")
+
     def backtoHome(self):
         self.counter = -1
         self.exitButton.setHidden(True)
@@ -1088,6 +1067,60 @@ class Ui_Dialog(object):
     def changeNumDetected(self):
         self.NumDetected_Video1.setText(str(len(self.label_to_predict)))
         self.NumDetected_Video2.setText(str(len(self.label_to_predict2)))
+
+    def getMissingSquares(self, cube_dict):
+        print(f"cube is {cube_dict}")
+        diction_colors = dict(zip(range(len(self.colors)), self.colors))
+        color_count = {color: 0 for color in range(6)}
+        for color in cube_dict.values():
+            if color in color_count:
+                color_count[color] += 1
+        missing_colors = {color: self.total_squares_per_color - count for color, count in color_count.items()}
+        bottom_face_positions = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9']
+        missing_colors_list = []
+        for color, missing_count in missing_colors.items():
+            missing_colors_list.extend([color] * missing_count)
+        if len(missing_colors_list) != len(bottom_face_positions):
+            print("Mismatch between number of missing colors and number of positions on the bottom face")
+        center_pieces = ['U5', 'F5', 'L5', 'R5', 'D5']
+        used_center_colors = set(cube_dict.get(pos, None) for pos in center_pieces if cube_dict.get(pos) is not None)
+        all_colors = set(range(6))
+        unused_colors = all_colors - used_center_colors
+        if len(unused_colors) != 1:
+            print("There should be exactly one unused color for the center piece")
+        unused_center_color = unused_colors.pop()
+        if missing_colors_list.count(unused_center_color) > 0:
+            missing_colors_list.remove(unused_center_color)
+        bottom_face_dict = {pos: None for pos in bottom_face_positions}
+        print("m1")
+        bottom_face_dict['B5'] = unused_center_color
+        print("m2")
+        bottom_face_dict['B7'] = self.get_bottom_color(cube_dict, 'R9', 'D9')
+        bottom_face_dict['B1'] = self.get_bottom_color(cube_dict, 'R3', 'U3')
+        bottom_face_dict['B9'] = self.get_bottom_color(cube_dict, 'L7', 'D7')
+        bottom_face_dict['B3'] = self.get_bottom_color(cube_dict, 'L1', 'U1')
+
+        # Assign remaining colors to the middle positions
+        remaining_positions = [pos for pos in bottom_face_positions if bottom_face_dict[pos] is None]
+        for pos, color in zip(remaining_positions, missing_colors_list):
+            bottom_face_dict[pos] = color
+
+        # Return the updated bottom face dictionary with the center piece color
+        return bottom_face_dict
+
+    def get_bottom_color(self, cube_dict, pos1, pos2):
+        print("m2.2")
+        # Get the color from the cube_dict for the adjacent face positions
+        color1 = cube_dict.get(pos1)
+        color2 = cube_dict.get(pos2)
+        print(color1, color2)
+        # Return the color that matches either color1 or color2, or None if undefined
+        for color in [color1, color2]:
+            print("m2.3")
+            if color is not None:
+                return color
+
+        return None
     def changeText(self):
         self.counter += 1
         if self.counter == 0:
@@ -1097,6 +1130,7 @@ class Ui_Dialog(object):
         elif self.counter == 2:
             self.showScreen4()
             self.generatingButton.setText("Solving...")
+            self.solveCube(self.label_to_predict_copy)
         elif self.counter == 3:
             self.generatingButton.setText("Solved!")
             self.exitButton.setHidden(False)
@@ -1108,7 +1142,6 @@ class Ui_Dialog(object):
 
     def screen2viewCam(self):
         self.current_time = time.time()
-
         if self.stackedWidget.currentWidget() == self.screen2:
             ret, image = self.cap.read()
             ret2, image2 = self.cap2.read()
@@ -1118,11 +1151,12 @@ class Ui_Dialog(object):
                 self.label_to_predict = dict(zip(labels, predicts))
                 labels2, predicts2 = self.get_predicts_and_labels(self.model, image2, 2)
                 self.label_to_predict2 = dict(zip(labels2, predicts2))
-                label_to_predict_copy = self.label_to_predict.copy()
-                label_to_predict_copy.update(self.label_to_predict2)
-                print(self.label_to_predict)
-                self.update_cube_colors(label_to_predict_copy)
+                self.label_to_predict_copy = self.label_to_predict.copy()
+                #missing_dict = self.getMissingSquares(label_to_predict_copy)
+                #self.label_to_predict2.update(missing_dict)
+                self.label_to_predict_copy.update(self.label_to_predict2)
                 self.changeNumDetected()
+                self.update_cube_colors(self.label_to_predict_copy)
                 image = imutils.resize(image, height=400, width=200)
                 image2 = imutils.resize(image2, height=400, width=200)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

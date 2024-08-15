@@ -123,7 +123,7 @@ def draw_cube_visualization(label_to_predict):
     plt.show()
 
 # Start the webcam
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 capture_interval = 5  # seconds
 last_capture_time = time.time()
 
