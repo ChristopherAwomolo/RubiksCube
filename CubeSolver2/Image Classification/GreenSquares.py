@@ -40,14 +40,14 @@ def save_quadrilaterals(frame):
         cv2.imwrite(f'quadrilateral_{i}.png', cropped_roi)
 
     # Save the quadrilateral points to a text file
-    with open('quadrilaterals.txt', 'w') as f:
+    with open('../quadrilaterals.txt', 'w') as f:
         json.dump(all_quadrilaterals, f)
 
 
 def load_quadrilaterals():
     global all_quadrilaterals
     try:
-        with open('quadrilaterals.txt', 'r') as f:
+        with open('../quadrilaterals.txt', 'r') as f:
             all_quadrilaterals = json.load(f)
     except FileNotFoundError:
         all_quadrilaterals = []

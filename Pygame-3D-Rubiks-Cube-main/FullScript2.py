@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from PyQt5 import QtWidgets
@@ -11,8 +11,11 @@ import imutils
 import time
 import joblib
 import colorsys
+import random
 import kociemba
-from rubiks_widget import RubiksWidget
+import OpenGL.GL as GL
+import OpenGL.GLU as GLU
+from rubik import Rubik
 
 '''
 To do list (easiest to hardest)
@@ -30,139 +33,106 @@ To do list (easiest to hardest)
 -Finish the settings menu
 '''
 
-class OpenGLWidget(QtWidgets.QOpenGLWidget):
-    def __init__(self, parent=None, cube_dictionary=None):
-        super(OpenGLWidget, self).__init__(parent)
-        self.lastPos = None
-        self.rotation = [570.0, -46.0, 0]
-        self.zoom = 1.3
-        self.cube_dictionary = self.default_cube_dict() #cube_dict if cube_dict else self.default_cube_dict()
+class RubikWidget(QtWidgets.QOpenGLWidget):
+    def __init__(self):
+        super().__init__()
+        self.rubik = Rubik(2)
+        self.ang_x, self.ang_y = 45, -135
+        self.rot_matrix = GL.GLfloat * 16
+        self.rotation_matrix = self.rot_matrix(1, 0, 0, 0,
+                                               0, 1, 0, 0,
+                                               0, 0, 1, 0,
+                                               0, 0, 0, 1)
+
+        self.mouse_down = False
+        self.last_mouse_pos = None
+
+        # Animation variables
+        self.animate = False
+        self.animate_ang = 0
+        self.animate_speed = 5
+        self.rotate = (0, 0, 0)
+
+        # Timer for animation and updates
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_animation)
+        self.timer.start(10)
 
     def initializeGL(self):
-        glClearColor(0.0, 0.0, 0.0, 1.0)
-        glEnable(GL_DEPTH_TEST)
-
-    def resizeGL(self, w, h):
-        glViewport(0, 0, w, h)
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(45, (w / h), 0.5, 40)
-        glTranslatef(0.0, 0.0, -17.5)
-        glMatrixMode(GL_MODELVIEW)
+        GL.glEnable(GL.GL_DEPTH_TEST)
+        GL.glMatrixMode(GL.GL_PROJECTION)
+        GLU.gluPerspective(45, self.width() / self.height(), 1, 50.0)
+        GL.glMatrixMode(GL.GL_MODELVIEW)
+        GL.glTranslatef(0, 0, -40)
 
     def paintGL(self):
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glLoadIdentity()
-        glScalef(self.zoom, self.zoom, self.zoom)
-        glRotatef(self.rotation[0], 1, 0, 0)
-        glRotatef(self.rotation[1], 0, 1, 0)
-        glRotatef(self.rotation[2], 0, 0, 1)
-        self.cube()
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+        GL.glClearColor(1, 1, 1, 1)
+        GL.glLoadIdentity()
+        GL.glMultMatrixf(self.rotation_matrix)
 
-    def color_from_char(self, char):
-        colors = {
-            'W': (1, 1, 1),  # White
-            'B': (0, 0.318, 0.729),  # Blue
-            'Y': (1, 0.835, 0),  # Yellow
-            'G': (0, 0.62, 0.376),  # Green
-            'O': (1, 0.345, 0),  # Orange
-            'R': (0.8, 0.118, 0.118)  # Red
+        if self.animate:
+            if self.animate_ang >= 90:
+                for cube in self.rubik.cubes:
+                    cube.update(*self.rotate)
+                self.animate = False
+                self.animate_ang = 0
+
+        for cube in self.rubik.cubes:
+            cube.draw(cube.polygons, self.animate, self.animate_ang, *self.rotate)
+
+        if self.animate:
+            self.animate_ang += self.animate_speed
+
+    def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            self.mouse_down = True
+            self.last_mouse_pos = event.pos()
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        if event.button() == Qt.LeftButton:
+            self.mouse_down = False
+            self.last_mouse_pos = None
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        if self.mouse_down and self.last_mouse_pos is not None:
+            dx = event.x() - self.last_mouse_pos.x()
+            dy = event.y() - self.last_mouse_pos.y()
+
+            # Rotate around y-axis
+            GL.glPushMatrix()
+            GL.glLoadIdentity()
+            GL.glRotatef(dx * 0.5, 0, 1, 0)
+            GL.glMultMatrixf(self.rotation_matrix)
+            GL.glGetFloatv(GL.GL_MODELVIEW_MATRIX, self.rotation_matrix)
+            GL.glPopMatrix()
+
+            # Rotate around x-axis
+            GL.glPushMatrix()
+            GL.glLoadIdentity()
+            GL.glRotatef(dy * 0.5, 1, 0, 0)
+            GL.glMultMatrixf(self.rotation_matrix)
+            GL.glGetFloatv(GL.GL_MODELVIEW_MATRIX, self.rotation_matrix)
+            GL.glPopMatrix()
+
+            self.last_mouse_pos = event.pos()
+            self.update()
+
+    def keyPressEvent(self, event):
+        rotate_slc = {
+            Qt.Key_1: (0, 0, 1), Qt.Key_2: (0, 1, 1), Qt.Key_3: (0, 2, 1),
+            Qt.Key_4: (1, 0, 1), Qt.Key_5: (1, 1, 1), Qt.Key_6: (1, 2, 1),
+            Qt.Key_7: (2, 0, 1), Qt.Key_8: (2, 1, 1), Qt.Key_9: (2, 2, 1)
         }
-        return colors.get(char, (0, 0, 0))  # Default to black if char not found
 
-    def default_cube_dict(self):
-        return {
-            'U1': 'W', 'U2': 'W', 'U3': 'W', 'U4': 'W', 'U5': 'W', 'U6': 'W', 'U7': 'W', 'U8': 'W', 'U9': 'W',
-            'D1': 'Y', 'D2': 'Y', 'D3': 'Y', 'D4': 'Y', 'D5': 'Y', 'D6': 'Y', 'D7': 'Y', 'D8': 'Y', 'D9': 'Y',
-            'F1': 'R', 'F2': 'R', 'F3': 'R', 'F4': 'R', 'F5': 'R', 'F6': 'R', 'F7': 'R', 'F8': 'R', 'F9': 'R',
-            'B1': 'O', 'B2': 'O', 'B3': 'O', 'B4': 'O', 'B5': 'O', 'B6': 'O', 'B7': 'O', 'B8': 'O', 'B9': 'O',
-            'L1': 'B', 'L2': 'B', 'L3': 'B', 'L4': 'B', 'L5': 'B', 'L6': 'B', 'L7': 'B', 'L8': 'B', 'L9': 'B',
-            'R1': 'G', 'R2': 'G', 'R3': 'G', 'R4': 'G', 'R5': 'G', 'R6': 'G', 'R7': 'G', 'R8': 'G', 'R9': 'G'
-        }
+        if not self.animate and event.key() in rotate_slc:
+            self.animate = True
+            self.rotate = rotate_slc[event.key()]
 
-    def cube(self):
-        cube_verts = (
-            (3, -3, -3), (3, 3, -3), (-3, 3, -3), (-3, -3, -3),
-            (3, -3, 3), (3, 3, 3), (-3, -3, 3), (-3, 3, 3)
-        )
-        cube_edges = (
-            (0, 1), (0, 3), (0, 4), (2, 1), (2, 3), (2, 7),
-            (6, 3), (6, 4), (6, 7), (5, 1), (5, 4), (5, 7)
-        )
-        surface_indices = [
-            (0, 1, 2, 3), (3, 2, 7, 6), (6, 7, 5, 4),
-            (4, 5, 1, 0), (1, 5, 7, 2), (4, 0, 3, 6)
-        ]
+    def update_animation(self):
+        self.update()  # Trigger paintGL
 
-        face_order = ['U', 'L', 'F', 'R', 'B', 'D']
 
-        glBegin(GL_QUADS)
-        for i, face in enumerate(face_order):
-            for pos in range(1, 10):
-                key = f'{face}{pos}'
-                color = self.color_from_char(self.cube_dictionary.get(key, 'B'))
-                surface = surface_indices[(pos - 1) % 6]
-                glColor3fv(color)
-                for vertex in surface:
-                    glVertex3fv(cube_verts[vertex])
-        glEnd()
-
-        glBegin(GL_LINES)
-        glColor3fv((0, 0, 0))
-        for edge in cube_edges:
-            for vertex in edge:
-                glVertex3fv(cube_verts[vertex])
-        glEnd()
-
-        glLineWidth(5)
-        glColor3fv((0, 0, 0))  # Grid lines color: black
-
-        for i in range(3):
-            for j in range(3):
-                # X-Y plane (Front and Back faces)
-                glBegin(GL_LINE_LOOP)
-                glVertex3f(3 - i * 2, 3 - j * 2, 3)
-                glVertex3f(3 - (i + 1) * 2, 3 - j * 2, 3)
-                glVertex3f(3 - (i + 1) * 2, 3 - (j + 1) * 2, 3)
-                glVertex3f(3 - i * 2, 3 - (j + 1) * 2, 3)
-                glEnd()
-
-                glBegin(GL_LINE_LOOP)
-                glVertex3f(3 - i * 2, 3 - j * 2, -3)
-                glVertex3f(3 - (i + 1) * 2, 3 - j * 2, -3)
-                glVertex3f(3 - (i + 1) * 2, 3 - (j + 1) * 2, -3)
-                glVertex3f(3 - i * 2, 3 - (j + 1) * 2, -3)
-                glEnd()
-
-                # X-Z plane (Top and Bottom faces)
-                glBegin(GL_LINE_LOOP)
-                glVertex3f(3 - i * 2, 3, 3 - j * 2)
-                glVertex3f(3 - (i + 1) * 2, 3, 3 - j * 2)
-                glVertex3f(3 - (i + 1) * 2, 3, 3 - (j + 1) * 2)
-                glVertex3f(3 - i * 2, 3, 3 - (j + 1) * 2)
-                glEnd()
-
-                glBegin(GL_LINE_LOOP)
-                glVertex3f(3 - i * 2, -3, 3 - j * 2)
-                glVertex3f(3 - (i + 1) * 2, -3, 3 - j * 2)
-                glVertex3f(3 - (i + 1) * 2, -3, 3 - (j + 1) * 2)
-                glVertex3f(3 - i * 2, -3, 3 - (j + 1) * 2)
-                glEnd()
-
-                # Y-Z plane (Left and Right faces)
-                glBegin(GL_LINE_LOOP)
-                glVertex3f(3, 3 - i * 2, 3 - j * 2)
-                glVertex3f(3, 3 - (i + 1) * 2, 3 - j * 2)
-                glVertex3f(3, 3 - (i + 1) * 2, 3 - (j + 1) * 2)
-                glVertex3f(3, 3 - i * 2, 3 - (j + 1) * 2)
-                glEnd()
-
-                glBegin(GL_LINE_LOOP)
-                glVertex3f(-3, 3 - i * 2, 3 - j * 2)
-                glVertex3f(-3, 3 - (i + 1) * 2, 3 - j * 2)
-                glVertex3f(-3, 3 - (i + 1) * 2, 3 - (j + 1) * 2)
-                glVertex3f(-3, 3 - i * 2, 3 - (j + 1) * 2)
-                glEnd()
 
     def mousePressEvent(self, event):
         self.lastPos = event.pos()
@@ -189,7 +159,6 @@ class OpenGLWidget(QtWidgets.QOpenGLWidget):
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
-        self.previous_number = None
         self.settingCameraOption = "Camera1"
         self.counter = 0
         self.Dialog = Dialog
@@ -228,7 +197,7 @@ class Ui_Dialog(object):
 
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
-        self.model = joblib.load('model/decision_tree-v4-7.joblib')
+        self.model = joblib.load('../CubeSolver2/model/decision_tree-v4-7.joblib')
 
         self.colors = ['B', 'G', 'O', 'R', 'W', 'Y']
         self.cam1faces= ['F', 'L', 'D']
@@ -236,12 +205,11 @@ class Ui_Dialog(object):
         self.colors.sort()
         self.total_squares_per_color = 9  # Each color should appear exactly 9 times
 
-        with open("Polygons.txt", "r") as file:
+        with open("../CubeSolver2/Polygons.txt", "r") as file:
             dict_str = file.read()
 
         self.polygons = eval(dict_str)
 
-        self.cnt = 0
 
     def get_dominant_hsv(self, img):
         average = img.mean(axis=0).mean(axis=0)
@@ -289,7 +257,7 @@ class Ui_Dialog(object):
             'W': "background-color: rgb(255, 255, 255);", # White
             'Y': "background-color: rgb(255, 255, 0);"    # Yellow
         }
-
+        print("tya")
         self.L1.setStyleSheet(color_mapping[self.colors[label_to_predict['L1']]])
         self.L2.setStyleSheet(color_mapping[self.colors[label_to_predict['L2']]])
         self.L3.setStyleSheet(color_mapping[self.colors[label_to_predict['L3']]])
@@ -351,10 +319,10 @@ class Ui_Dialog(object):
         self.B9.setStyleSheet(color_mapping[self.colors[label_to_predict['B9']]])
 
     def setupScreen1(self, screen):
-        self.openGLWidget = RubiksWidget(screen)  # Use the OpenGLWidget subclass
+        self.openGLWidget = OpenGLWidget(screen)  # Use the OpenGLWidget subclass
         self.openGLWidget.setGeometry(QtCore.QRect(150, 120, 241, 230)) #170, 160, 211, 181
         self.openGLWidget.setAutoFillBackground(False)
-        #self.openGLWidget.setObjectName("openGLWidget")
+        self.openGLWidget.setObjectName("openGLWidget")
 
         font = QtGui.QFont()
         font.setFamily("Big John")
@@ -427,10 +395,10 @@ class Ui_Dialog(object):
         self.settingsButton.setText("Settings")
         self.settingsButton.clicked.connect(self.showScreen5)
 
-        self.s2openGLWidget = RubiksWidget(screen)
-        self.s2openGLWidget.setGeometry(QtCore.QRect(330, 20, 211, 191))
-        self.s2openGLWidget.setAutoFillBackground(False)
-        self.s2openGLWidget.setObjectName("openGLWidget")
+        self.openGLWidget = OpenGLWidget(screen)
+        self.openGLWidget.setGeometry(QtCore.QRect(330, 20, 211, 191))
+        self.openGLWidget.setAutoFillBackground(False)
+        self.openGLWidget.setObjectName("openGLWidget")
 
         self.Video_1Label = QtWidgets.QLabel(screen)
         self.Video_1Label.setGeometry(QtCore.QRect(180, 10, 131, 31))
@@ -854,18 +822,11 @@ class Ui_Dialog(object):
         self.gridLayout.addLayout(self.gridLayout_5, 2, 3, 1, 1)
 
     def setupScreen3(self, screen):
-        self.s3openGLWidget = RubiksWidget(screen)  # Use the OpenGLWidget subclass
-        self.s3openGLWidget.setGeometry(QtCore.QRect(20, 20, 529, 330)) #170, 160, 211, 181
-        self.s3openGLWidget.setAutoFillBackground(False)
-        self.s3openGLWidget.setObjectName("openGLWidget")
-        #self.s3openGLWidget.resizeGL(700, 200)
-        self.s3openGLWidget.solveCubeAnimation = self.s2openGLWidget.solveCubeAnimation
-        self.s3openGLWidget.initializeGL = self.s2openGLWidget.initializeGL
-        self.s3openGLWidget.paintGL = self.s2openGLWidget.paintGL
-        self.s3openGLWidget.mousePressEvent = self.s2openGLWidget.mousePressEvent
-        self.s3openGLWidget.mouseMoveEvent = self.s2openGLWidget.mouseMoveEvent
-        self.s3openGLWidget.wheelEvent =  self.s2openGLWidget.wheelEvent
-        self.s3openGLWidget.keyPressEvent = self.s2openGLWidget.keyPressEvent
+
+        self.openGLWidget = OpenGLWidget(screen)  # Use the OpenGLWidget subclass
+        self.openGLWidget.setGeometry(QtCore.QRect(80, 20, 400, 300)) #170, 160, 211, 181
+        self.openGLWidget.setAutoFillBackground(False)
+        self.openGLWidget.setObjectName("openGLWidget")
 
         self.exitButton = QtWidgets.QPushButton(screen)
         self.exitButton.setGeometry(QtCore.QRect(10, 360, 111, 31))
@@ -892,7 +853,6 @@ class Ui_Dialog(object):
         self.stepsButton.setText("Steps")
         self.stepsButton.raise_()
         self.stepsButton.setHidden(True)
-        self.stepsButton.clicked.connect(self.showSteps)
         self.retranslateUi(screen)
 
         self.generatingButton = QtWidgets.QPushButton(screen)
@@ -907,45 +867,6 @@ class Ui_Dialog(object):
         self.generatingButton.raise_()
         self.generatingButton.clicked.connect(self.changeText)
         self.retranslateUi(screen)
-        max_height = 100
-        n = 15  # Replace with the actual number of buttons
-        button_height = max_height // n
-        '''
-        self.s3grid_layout = QtWidgets.QVBoxLayout(screen)
-        self.s3grid_layout.setGeometry(460,20,91,301)
-        self.s3gridLayoutWidget.setHidden(True)
-        for i in range(15):
-            button = QtWidgets.QPushButton(f"Additional Setting {i + 1}", screen)
-            button.setStyleSheet("background-color: white; color: black;")
-            button.setFixedSize(91, 10)  # Example size, adjust to fit your box
-            self.s3grid_layout.addWidget(button)
-        '''
-
-        min_button_height = 30
-        if button_height < min_button_height:
-            button_height = min_button_height
-        self.container_widget = QtWidgets.QWidget(screen)
-        self.container_widget.setGeometry(460, 20, 110, 301)  # X: 460px, Y: 220px, Width: 150px, Height: 350px
-        self.container_widget.setHidden(True)
-        self.main_layout = QtWidgets.QVBoxLayout(self.container_widget)
-        self.scroll_area = QtWidgets.QScrollArea(self.container_widget)
-        #self.scroll_area.setFixedSize(91, 301)
-        self.scroll_area_widget_contents = QtWidgets.QWidget(self.scroll_area)
-        self.scroll_area_layout = QtWidgets.QVBoxLayout(self.scroll_area_widget_contents)
-        n = 10  # Replace with the actual number of buttons
-        button_height = 30  # Example button height
-        for i in range(n):
-            button = QtWidgets.QPushButton(f"{i + 1}", self.scroll_area_widget_contents)
-            button.setStyleSheet("background-color: white; color: black;")
-            button.setFixedHeight(button_height)
-            button.setFixedWidth(50)  # Set button widt
-            button.clicked.connect(lambda checked, i=i: self.animateStepName(i))# h
-            self.scroll_area_layout.addWidget(button)
-        self.scroll_area_widget_contents.setLayout(self.scroll_area_layout)
-        self.scroll_area.setWidget(self.scroll_area_widget_contents)
-        self.scroll_area.setWidgetResizable(True)
-        self.main_layout.addWidget(self.scroll_area)
-
 
     def setupScreen4(self, screen):
         self.cubeSolveButton = QtWidgets.QPushButton(screen)
@@ -1042,7 +963,6 @@ class Ui_Dialog(object):
             self.button.setStyleSheet("background-color: white; color: black;")
             self.scroll_area_layout_1.addWidget(self.button)
         '''
-
         self.scroll_area_1.setWidget(self.scroll_area_widget_1)
         self.scroll_area_1.setWidgetResizable(True)
         self.camera_settings_layout.addWidget(self.scroll_area_1)
@@ -1052,6 +972,8 @@ class Ui_Dialog(object):
         self.scroll_area_2 = QtWidgets.QScrollArea(screen)
         self.scroll_area_widget_2 = QtWidgets.QWidget(screen)
         self.scroll_area_layout_2 = QtWidgets.QVBoxLayout(self.scroll_area_widget_2)
+
+
 
         self.cam2_change_settings_button = QtWidgets.QPushButton("Change Camera Settings", screen)
         self.cam2_change_settings_button.setStyleSheet("background-color: white; color: black;")
@@ -1064,7 +986,6 @@ class Ui_Dialog(object):
         self.scroll_area_layout_1.addWidget(self.change_resolution_button)
         self.scroll_area_layout_2.addWidget(self.cam2_change_settings_button)
         self.scroll_area_layout_2.addWidget(self.cam2_change_resolution_button)
-
         '''
         for i in range(20):
             self.button = QtWidgets.QPushButton(f"Option {i + 1} for Another", screen)
@@ -1105,8 +1026,6 @@ class Ui_Dialog(object):
         else:
             pass
 
-    def showSteps(self):
-        self.container_widget.setHidden(False)
 
     def showScreen1(self):
         self.stackedWidget.setCurrentWidget(self.screen1)
@@ -1136,8 +1055,6 @@ class Ui_Dialog(object):
         except ValueError as e:
             print(f"Error: {e}")
             print("The cube configuration might be invalid or unsolvable.")
-
-        return solution
 
     def backtoHome(self):
         self.counter = -1
@@ -1230,60 +1147,17 @@ class Ui_Dialog(object):
         elif self.counter == 2:
             self.showScreen4()
             self.generatingButton.setText("Solving...")
-            solution = self.solveCube(self.label_to_predict_copy)
-            self.s3openGLWidget.solveCubeAnimation(solution)
-            print("solving")
+            self.solveCube(self.label_to_predict_copy)
         elif self.counter == 3:
             self.generatingButton.setText("Solved!")
             self.exitButton.setHidden(False)
             self.stepsButton.setHidden(False)
-
-    def get_opposite_moves(self, sequence):
-        moves = sequence.split()
-        opposite_sequence = []
-        for move in reversed(moves):
-            face = move[0]
-            if len(move) == 1:
-                opposite_sequence.append(face + "'")
-            elif move[1] == "'":
-                opposite_sequence.append(face)
-            elif move[1] == "2":
-                opposite_sequence.append(face + "' " + face + "'")
-        return ' '.join(opposite_sequence)
-
-    def animateStepName(self, number):
-        reverse_list = self.get_opposite_moves(self.sol)
-        if number == 0:
-            sublist = reverse_list
-        else:
-            sublist = reverse_list[:-number]
-        if self.previous_number is not None:
-            if self.previous_number == 0:
-                previous_sublist = reverse_list
-            else:
-                previous_sublist = reverse_list[:-self.previous_number]
-
-            difference = list(set(previous_sublist) - set(sublist))
-            if difference:
-                self.s3openGLWidget.solveCubeAnimation(difference)
-                print("Difference between previous and current sublists:", difference)
-            else:
-                print("No difference between previous and current sublists.")
-        else:
-
-            self.s3openGLWidget.solveCubeAnimation(sublist)
-        # Update the previous number with the current one for the next iteration
-        self.previous_number = number
-        print(self.previous_number)
-
-
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
 
     def screen2viewCam(self):
-
         self.current_time = time.time()
         if self.stackedWidget.currentWidget() == self.screen2:
             ret, image = self.cap.read()
@@ -1303,20 +1177,11 @@ class Ui_Dialog(object):
                     'L1': 4, 'L2': 5, 'L3': 0, 'L4': 4, 'L5': 1, 'L6': 2, 'L7': 3, 'L8': 4, 'L9': 4,
                     'B1': 1, 'B2': 1, 'B3': 1, 'B4': 0, 'B5': 5, 'B6': 2, 'B7': 0, 'B8': 5, 'B9': 1
                 }
-
                 #missing_dict = self.getMissingSquares(label_to_predict_copy)
                 #self.label_to_predict2.update(missing_dict)
                 #self.label_to_predict_copy.update(self.label_to_predict2)
                 #self.changeNumDetected()
-
-
                 self.update_cube_colors(self.label_to_predict_copy)
-                if self.cnt == 0:
-                    self.sol = self.solveCube(self.label_to_predict_copy)
-                    reverse_list = self.get_opposite_moves(self.sol)
-                    self.s2openGLWidget.solveCubeAnimation(reverse_list)
-
-                self.cnt += 1
                 image = imutils.resize(image, height=400, width=200)
                 image2 = imutils.resize(image2, height=400, width=200)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
