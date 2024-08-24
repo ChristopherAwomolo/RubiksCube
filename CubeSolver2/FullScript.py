@@ -20,7 +20,6 @@ To do list (easiest to hardest)
 -Add more training data
 -Make the GUI scalable and include a fullscreen in the dialog
 -Make the waiting screens work for generating steps and solving the cube (not click based)
--Scrap current cube + make another cube which visualises the faces from the webcam
 -Finish all of the settings work
  -Make Camera Settings for Camera 2
  -Make Camera Resolution for Camera 1
@@ -28,6 +27,7 @@ To do list (easiest to hardest)
  -Make calibration squares for Camera 1
  -Make calibration squares for Camera 2
 -Finish the settings menu
+-Fix the next and prev scripts
 '''
 
 class OpenGLWidget(QtWidgets.QOpenGLWidget):
@@ -189,7 +189,8 @@ class OpenGLWidget(QtWidgets.QOpenGLWidget):
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
-        self.previous_number = None
+        self.previous_number = 0
+        self.current_pos = 0
         self.settingCameraOption = "Camera1"
         self.counter = 0
         self.Dialog = Dialog
@@ -910,16 +911,6 @@ class Ui_Dialog(object):
         max_height = 100
         n = 15  # Replace with the actual number of buttons
         button_height = max_height // n
-        '''
-        self.s3grid_layout = QtWidgets.QVBoxLayout(screen)
-        self.s3grid_layout.setGeometry(460,20,91,301)
-        self.s3gridLayoutWidget.setHidden(True)
-        for i in range(15):
-            button = QtWidgets.QPushButton(f"Additional Setting {i + 1}", screen)
-            button.setStyleSheet("background-color: white; color: black;")
-            button.setFixedSize(91, 10)  # Example size, adjust to fit your box
-            self.s3grid_layout.addWidget(button)
-        '''
 
         min_button_height = 30
         if button_height < min_button_height:
@@ -932,10 +923,10 @@ class Ui_Dialog(object):
         #self.scroll_area.setFixedSize(91, 301)
         self.scroll_area_widget_contents = QtWidgets.QWidget(self.scroll_area)
         self.scroll_area_layout = QtWidgets.QVBoxLayout(self.scroll_area_widget_contents)
-        n = 10  # Replace with the actual number of buttons
+        n = 31  # Replace with the actual number of buttons
         button_height = 30  # Example button height
         for i in range(n):
-            button = QtWidgets.QPushButton(f"{i + 1}", self.scroll_area_widget_contents)
+            button = QtWidgets.QPushButton(f"{i}", self.scroll_area_widget_contents)
             button.setStyleSheet("background-color: white; color: black;")
             button.setFixedHeight(button_height)
             button.setFixedWidth(50)  # Set button widt
@@ -945,7 +936,6 @@ class Ui_Dialog(object):
         self.scroll_area.setWidget(self.scroll_area_widget_contents)
         self.scroll_area.setWidgetResizable(True)
         self.main_layout.addWidget(self.scroll_area)
-
 
     def setupScreen4(self, screen):
         self.cubeSolveButton = QtWidgets.QPushButton(screen)
@@ -1036,13 +1026,6 @@ class Ui_Dialog(object):
         self.scroll_area_layout_1.addWidget(self.change_settings_button)
         self.scroll_area_layout_1.addWidget(self.change_resolution_button)
 
-        '''
-        for i in range(15):
-            self.button = QtWidgets.QPushButton(f"Additional Setting {i + 1}", screen)
-            self.button.setStyleSheet("background-color: white; color: black;")
-            self.scroll_area_layout_1.addWidget(self.button)
-        '''
-
         self.scroll_area_1.setWidget(self.scroll_area_widget_1)
         self.scroll_area_1.setWidgetResizable(True)
         self.camera_settings_layout.addWidget(self.scroll_area_1)
@@ -1065,13 +1048,6 @@ class Ui_Dialog(object):
         self.scroll_area_layout_2.addWidget(self.cam2_change_settings_button)
         self.scroll_area_layout_2.addWidget(self.cam2_change_resolution_button)
 
-        '''
-        for i in range(20):
-            self.button = QtWidgets.QPushButton(f"Option {i + 1} for Another", screen)
-            self.button.setStyleSheet("background-color: white; color: black;")
-            self.scroll_area_layout_2.addWidget(self.button)
-        '''
-
         self.scroll_area_2.setWidget(self.scroll_area_widget_2)
         self.scroll_area_2.setWidgetResizable(True)
         self.another_layout.addWidget(self.scroll_area_2)
@@ -1089,14 +1065,12 @@ class Ui_Dialog(object):
 
     def openCameraSettings(self, cap_value):
         if cap_value == 1:
-            print("1")
             if hasattr(self, 'cap') and self.cap.isOpened():
                 self.cap.set(cv2.CAP_PROP_SETTINGS, 1)
             else:
                 self.controlTimer()
                 self.cap.set(cv2.CAP_PROP_SETTINGS, 1)
         elif cap_value == 2:
-            print("2")
             if hasattr(self, 'cap2') and self.cap2.isOpened():
                 self.cap2.set(cv2.CAP_PROP_SETTINGS, 1)
             else:
@@ -1106,7 +1080,10 @@ class Ui_Dialog(object):
             pass
 
     def showSteps(self):
+        self.s3openGLWidget.solveCubeAnimation(self.reverse_list)
         self.container_widget.setHidden(False)
+
+
 
     def showScreen1(self):
         self.stackedWidget.setCurrentWidget(self.screen1)
@@ -1192,9 +1169,7 @@ class Ui_Dialog(object):
         if missing_colors_list.count(unused_center_color) > 0:
             missing_colors_list.remove(unused_center_color)
         bottom_face_dict = {pos: None for pos in bottom_face_positions}
-        print("m1")
         bottom_face_dict['B5'] = unused_center_color
-        print("m2")
         bottom_face_dict['B7'] = self.get_bottom_color(cube_dict, 'R9', 'D9')
         bottom_face_dict['B1'] = self.get_bottom_color(cube_dict, 'R3', 'U3')
         bottom_face_dict['B9'] = self.get_bottom_color(cube_dict, 'L7', 'D7')
@@ -1209,14 +1184,12 @@ class Ui_Dialog(object):
         return bottom_face_dict
 
     def get_bottom_color(self, cube_dict, pos1, pos2):
-        print("m2.2")
         # Get the color from the cube_dict for the adjacent face positions
         color1 = cube_dict.get(pos1)
         color2 = cube_dict.get(pos2)
         print(color1, color2)
         # Return the color that matches either color1 or color2, or None if undefined
         for color in [color1, color2]:
-            print("m2.3")
             if color is not None:
                 return color
 
@@ -1251,31 +1224,103 @@ class Ui_Dialog(object):
                 opposite_sequence.append(face + "' " + face + "'")
         return ' '.join(opposite_sequence)
 
+    def get_opposite_step(self, step):
+        """Returns the opposite of a given Rubik's cube move."""
+        if step.endswith("2"):
+            return step[0] + "' " + step[0] + "'"
+        elif len(step) == 1:
+            return step + "'"
+        elif step.endswith("'"):
+            return step[0]
+        else:
+            return step[0]
+
+    def list_difference(self, list1, list2):
+        list1_copy = list1[:]
+        list2_copy = list2[:]
+        difference = []
+        for item in list1_copy:
+            if item in list2_copy:
+                list2_copy.remove(item)
+            else:
+                difference.append(item)
+        return difference
+
+    def compute_reverse_steps(self, steps):
+        """Returns the reverse of a list of steps."""
+        reversed_steps = []
+        for step in reversed(steps):
+            reversed_steps.append(self.get_opposite_step(step))
+        return reversed_steps
+
+    def expand_moves(self, moves):
+        expanded_moves = []
+        for move in moves:
+            if move.endswith("2"):
+                expanded_moves.append(move[0])
+                expanded_moves.append(move[0])
+            else:
+                expanded_moves.append(move)
+        return expanded_moves
+
+    def navigate_solution(self, solution, step_number):
+        solution_steps = solution
+        self.current_pos = step_number - 1
+        if self.current_pos < 0 or self.current_pos >= len(solution_steps):
+            print(f"Step {step_number} is out of bounds. Please enter a valid step number between 1 and {len(solution_steps)}.")
+            return self.current_pos
+        print(f"\nCurrent step: {self.current_pos + 1} -> {solution_steps[self.current_pos]}")
+        print(f"Solution so far: {' '.join(solution_steps[:self.current_pos + 1])}")
+        return self.current_pos
+
     def animateStepName(self, number):
-        reverse_list = self.get_opposite_moves(self.sol)
-        if number == 0:
-            sublist = reverse_list
-        else:
-            sublist = reverse_list[:-number]
-        if self.previous_number is not None:
-            if self.previous_number == 0:
-                previous_sublist = reverse_list
+        self.solSteps = self.expand_moves(self.sol.split(" "))
+        print(f"length of solSteps is  {len(self.solSteps)}")
+        #solSteps = ["R'", 'U', "B'", "D'", 'F2', "B'", 'U2', 'F2', 'R', "F'", 'R2', 'B2', 'U2', 'L2', 'U2', 'D', 'L2', 'F2', 'R2'], you need to turn the {face}2 into {face} {face}
+        if number == self.previous_number:
+            print(f"Already at step {number}.")
+        elif number == self.previous_number + 1:  # Equivalent to 'next'
+            if self.current_pos < len(self.solSteps):
+                joined_prev_number = self.solSteps[self.current_pos-1]
+                print(f"joined prev number is {joined_prev_number}")
+                self.s3openGLWidget.solveCubeAnimation(joined_prev_number)
+                self.current_pos += 1
+                self.previous_number = self.current_pos + 1
+                #joined_prev_number = self.solSteps[self.current_pos + 1]
+
+
+                #self.navigate_solution(self.solSteps, self.current_pos + 1)
             else:
-                previous_sublist = reverse_list[:-self.previous_number]
-
-            difference = list(set(previous_sublist) - set(sublist))
-            if difference:
-                self.s3openGLWidget.solveCubeAnimation(difference)
-                print("Difference between previous and current sublists:", difference)
+                print("You are already at the last step.")
+        elif number == self.previous_number - 1:  # Equivalent to 'prev'
+            if self.current_pos > 0:
+                reverse_steps = self.compute_reverse_steps(self.solSteps[:self.current_pos])
+                joined_reverse_steps = ' '.join(reverse_steps)
+                print(f"Reversing the last steps: {' '.join(reverse_steps)}")
+                self.s3openGLWidget.solveCubeAnimation(joined_reverse_steps)
+                self.current_pos -= 1
+                self.previous_number = self.current_pos + 1
+                #self.navigate_solution(self.solSteps, self.current_pos + 1)
             else:
-                print("No difference between previous and current sublists.")
+                print("You are already at the first step.")
+        elif 0 <= number < len(self.solSteps):  # Jump to specific step
+            if number > self.previous_number:
+                difference = self.solSteps[self.previous_number:number]
+                joined_difference_steps = ' '.join(difference)
+                print(f"Jumping forward to step {number}: {' '.join(difference)}")
+                self.s3openGLWidget.solveCubeAnimation(joined_difference_steps)
+                self.previous_number = number
+                #print(self.solSteps[difference])
+                #self.navigate_solution(difference, number)
+            elif number < self.previous_number:
+                reverse_steps = self.compute_reverse_steps(self.solSteps[number:self.previous_number])
+                joined_reverse_steps = ' '.join(reverse_steps)
+                print(f"Reversing to step {number}: {joined_reverse_steps}")
+                self.s3openGLWidget.solveCubeAnimation(joined_reverse_steps)
+                self.previous_number = number
+                #self.navigate_solution(reverse_steps, number)
         else:
-
-            self.s3openGLWidget.solveCubeAnimation(sublist)
-        # Update the previous number with the current one for the next iteration
-        self.previous_number = number
-        print(self.previous_number)
-
+            print(f"Please enter a valid step number between 1 and {len(self.solSteps)}.")
 
 
     def retranslateUi(self, Dialog):
@@ -1313,8 +1358,8 @@ class Ui_Dialog(object):
                 self.update_cube_colors(self.label_to_predict_copy)
                 if self.cnt == 0:
                     self.sol = self.solveCube(self.label_to_predict_copy)
-                    reverse_list = self.get_opposite_moves(self.sol)
-                    self.s2openGLWidget.solveCubeAnimation(reverse_list)
+                    self.reverse_list = self.get_opposite_moves(self.sol)
+                    self.s2openGLWidget.solveCubeAnimation(self.reverse_list)
 
                 self.cnt += 1
                 image = imutils.resize(image, height=400, width=200)

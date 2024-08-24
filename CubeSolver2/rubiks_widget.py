@@ -19,7 +19,7 @@ class RubiksWidget(QOpenGLWidget):
         }
         self.animate = False
         self.animate_ang = 0
-        self.animate_speed = 5
+        self.animate_speed = 60
         self.rotate = (0, 0, 0)
 
         self.rotation = [33, 46, 0]
