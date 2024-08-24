@@ -1174,13 +1174,9 @@ class Ui_Dialog(object):
         bottom_face_dict['B1'] = self.get_bottom_color(cube_dict, 'R3', 'U3')
         bottom_face_dict['B9'] = self.get_bottom_color(cube_dict, 'L7', 'D7')
         bottom_face_dict['B3'] = self.get_bottom_color(cube_dict, 'L1', 'U1')
-
-        # Assign remaining colors to the middle positions
         remaining_positions = [pos for pos in bottom_face_positions if bottom_face_dict[pos] is None]
         for pos, color in zip(remaining_positions, missing_colors_list):
             bottom_face_dict[pos] = color
-
-        # Return the updated bottom face dictionary with the center piece color
         return bottom_face_dict
 
     def get_bottom_color(self, cube_dict, pos1, pos2):
@@ -1225,13 +1221,12 @@ class Ui_Dialog(object):
         return ' '.join(opposite_sequence)
 
     def get_opposite_step(self, step):
-        """Returns the opposite of a given Rubik's cube move."""
-        if step.endswith("2"):
+        if len(step) == 2 and step.endswith("'"):
+            return step[0]
+        elif step.endswith("2"):
             return step[0] + "' " + step[0] + "'"
         elif len(step) == 1:
             return step + "'"
-        elif step.endswith("'"):
-            return step[0]
         else:
             return step[0]
 
@@ -1249,7 +1244,9 @@ class Ui_Dialog(object):
     def compute_reverse_steps(self, steps):
         """Returns the reverse of a list of steps."""
         reversed_steps = []
-        for step in reversed(steps):
+        print(f"steps is l{steps}l")
+        steps.reverse()
+        for step in steps:
             reversed_steps.append(self.get_opposite_step(step))
         return reversed_steps
 
@@ -1263,65 +1260,42 @@ class Ui_Dialog(object):
                 expanded_moves.append(move)
         return expanded_moves
 
-    def navigate_solution(self, solution, step_number):
-        solution_steps = solution
-        self.current_pos = step_number - 1
-        if self.current_pos < 0 or self.current_pos >= len(solution_steps):
-            print(f"Step {step_number} is out of bounds. Please enter a valid step number between 1 and {len(solution_steps)}.")
-            return self.current_pos
-        print(f"\nCurrent step: {self.current_pos + 1} -> {solution_steps[self.current_pos]}")
-        print(f"Solution so far: {' '.join(solution_steps[:self.current_pos + 1])}")
-        return self.current_pos
-
     def animateStepName(self, number):
         self.solSteps = self.expand_moves(self.sol.split(" "))
-        print(f"length of solSteps is  {len(self.solSteps)}")
-        #solSteps = ["R'", 'U', "B'", "D'", 'F2', "B'", 'U2', 'F2', 'R', "F'", 'R2', 'B2', 'U2', 'L2', 'U2', 'D', 'L2', 'F2', 'R2'], you need to turn the {face}2 into {face} {face}
         if number == self.previous_number:
             print(f"Already at step {number}.")
         elif number == self.previous_number + 1:  # Equivalent to 'next'
-            if self.current_pos < len(self.solSteps):
-                joined_prev_number = self.solSteps[self.current_pos-1]
-                print(f"joined prev number is {joined_prev_number}")
-                self.s3openGLWidget.solveCubeAnimation(joined_prev_number)
+            if self.current_pos < len(self.solSteps) - 1:
                 self.current_pos += 1
-                self.previous_number = self.current_pos + 1
-                #joined_prev_number = self.solSteps[self.current_pos + 1]
-
-
-                #self.navigate_solution(self.solSteps, self.current_pos + 1)
+                self.previous_number += 1
+                joined_prev_number = self.solSteps[self.previous_number-1]
+                self.s3openGLWidget.solveCubeAnimation(joined_prev_number)
+                self.current_pos = self.previous_number - 1
             else:
                 print("You are already at the last step.")
         elif number == self.previous_number - 1:  # Equivalent to 'prev'
-            if self.current_pos > 0:
-                reverse_steps = self.compute_reverse_steps(self.solSteps[:self.current_pos])
-                joined_reverse_steps = ' '.join(reverse_steps)
-                print(f"Reversing the last steps: {' '.join(reverse_steps)}")
-                self.s3openGLWidget.solveCubeAnimation(joined_reverse_steps)
+            if self.current_pos > -1:
                 self.current_pos -= 1
-                self.previous_number = self.current_pos + 1
-                #self.navigate_solution(self.solSteps, self.current_pos + 1)
+                self.previous_number -= 1
+                reverse_steps = self.compute_reverse_steps([self.solSteps[self.previous_number]])
+                joined_reverse_steps = ' '.join(reverse_steps)
+                self.s3openGLWidget.solveCubeAnimation(joined_reverse_steps)
+                self.current_pos = self.previous_number - 1
             else:
                 print("You are already at the first step.")
-        elif 0 <= number < len(self.solSteps):  # Jump to specific step
+        elif 0 <= number <= len(self.solSteps):  # Jump to specific step
             if number > self.previous_number:
                 difference = self.solSteps[self.previous_number:number]
                 joined_difference_steps = ' '.join(difference)
-                print(f"Jumping forward to step {number}: {' '.join(difference)}")
                 self.s3openGLWidget.solveCubeAnimation(joined_difference_steps)
                 self.previous_number = number
-                #print(self.solSteps[difference])
-                #self.navigate_solution(difference, number)
             elif number < self.previous_number:
                 reverse_steps = self.compute_reverse_steps(self.solSteps[number:self.previous_number])
                 joined_reverse_steps = ' '.join(reverse_steps)
-                print(f"Reversing to step {number}: {joined_reverse_steps}")
                 self.s3openGLWidget.solveCubeAnimation(joined_reverse_steps)
                 self.previous_number = number
-                #self.navigate_solution(reverse_steps, number)
         else:
             print(f"Please enter a valid step number between 1 and {len(self.solSteps)}.")
-
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
