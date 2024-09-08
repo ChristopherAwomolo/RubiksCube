@@ -19,7 +19,7 @@ class RubiksWidget(QOpenGLWidget):
         }
         self.animate = False
         self.animate_ang = 0
-        self.animate_speed = 60
+        self.animate_speed = 5
         self.rotate = (0, 0, 0)
 
         self.rotation = [33, 46, 0]
@@ -99,7 +99,7 @@ class RubiksWidget(QOpenGLWidget):
     def solveCubeAnimation(self, solve_string):
         self.solve_string_modified = self.transform_moves(solve_string)
         self.solve_queue = list(self.solve_string_modified.split())
-        self.processNextMove()  # Start processing the queue
+        self.processNextMove()
 
     def processNextMove(self):
         if self.solve_queue:
@@ -126,7 +126,8 @@ class RubiksWidget(QOpenGLWidget):
                 self.animate = True
                 self.rotate = self.rotate_slc[face]
                 self.update()
-
+        else:
+            print("done")
         if self.animate:
             QtCore.QTimer.singleShot(10, self.checkAnimationState)  # Adjust timing as needed
 
@@ -135,6 +136,7 @@ class RubiksWidget(QOpenGLWidget):
             self.processNextMove()  # Process the next move in the queue
         else:
             QtCore.QTimer.singleShot(10, self.checkAnimationState)
+
 
 
 

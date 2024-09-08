@@ -97,6 +97,7 @@ capture_squares_for_faces(cap, ['front', 'left', 'down'])
 cap.release()
 cv2.destroyAllWindows()
 
+'''
 # If first phase is complete, proceed to second phase
 if first_phase_complete or all(len(squares[face]) == 9 for face in ['front', 'left', 'down']):
     # Second phase: Capture squares for up, right, bottom using VideoCapture(1) with CAP_DSHOW
@@ -115,3 +116,4 @@ print("\nFinal Squares Data:")
 for face, square_list in squares.items():
     for square in square_list:
         print(f"{square[0]}: Top-Left: ({square[1]}, {square[2]}), Width: {square[3]}, Height: {square[4]}")
+'''

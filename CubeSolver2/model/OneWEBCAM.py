@@ -4,15 +4,9 @@ import joblib
 import numpy as np
 import colorsys
 import matplotlib.pyplot as plt
-
-# Load the trained decision tree model
 model = joblib.load('decision_tree-v4-7.joblib')
-
-# Define the colors and sort them
 colors = ['B', 'G', 'O', 'R', 'W', 'Y']
 colors.sort()
-
-# Define the polygon regions for faces U, L, and R only
 polygons = {
     'U1': (184, 160, 37, 12),
     'U2': (247, 146, 32, 32),
@@ -99,71 +93,43 @@ def draw_cube_visualization(label_to_predict):
               [colors[label_to_predict[f'R{i}']] for i in range(4, 7)],
               [colors[label_to_predict[f'R{i}']] for i in range(7, 10)]],
     }
-
     plt.figure(figsize=(6, 6))
     plt.axis('off')
-
-    # Draw the top face (U)
     for i in range(3):
         for j in range(3):
             color = color_map[face_mapping['U'][i][j]]
             plt.text(j, 6 - i, face_mapping['U'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color, edgecolor='black'))
-
-    # Draw the left (L) and right (R) faces
     for i in range(3):
         for j in range(3):
             color_left = color_map[face_mapping['L'][i][j]]
             color_right = color_map[face_mapping['R'][i][j]]
             plt.text(j - 3, 3 - i, face_mapping['L'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color_left, edgecolor='black'))
             plt.text(j + 3, 3 - i, face_mapping['R'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color_right, edgecolor='black'))
-
     plt.xlim(-4, 4)
     plt.ylim(-4, 8)
     plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
-
-# Start the webcam
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 capture_interval = 5  # seconds
 last_capture_time = time.time()
-
-# Placeholder for the last processed frame
 last_processed_frame = None
 
 while True:
-    # Capture frame from the camera
     ret, frame = cap.read()
     if not ret:
         break
-
-    # Get the current time
     current_time = time.time()
-
-    # Check if 5 seconds have passed
     if current_time - last_capture_time >= capture_interval:
-        # Update the last capture time
         last_capture_time = current_time
-
-        # Get the predictions for the current frame
         labels, predicts = get_predicts_and_labels(model, frame)
         label_to_predict = dict(zip(labels, predicts))
-
-        # Show polygons with predictions
         last_processed_frame = show_polygons(frame.copy(), label_to_predict)
-
-        # Draw 2D cube visualization based on predictions
         draw_cube_visualization(label_to_predict)
-
-    # Display the last processed frame
     if last_processed_frame is not None:
         cv2.imshow('Webcam - Color Predictions', last_processed_frame)
     else:
         cv2.imshow('Webcam - Color Predictions', frame)
-
-    # Break the loop on 'q' key press
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-
-# Release the capture and close windows
 cap.release()
 cv2.destroyAllWindows()

@@ -126,7 +126,8 @@ while True:
                             img.shape[0]:
                         roi = img[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
                         filename = f'{1}-{grid_index + 1}-{grid_label}{3 * i + j + 1}.png'
-                        cv2.imwrite(filename, roi)
+                        print(filename)
+                        #cv2.imwrite(filename, roi)
 
     # Display the frame with drawings
     cv2.imshow('Webcam', img)

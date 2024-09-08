@@ -12,6 +12,7 @@ def mouse_callback(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         # Store the point where the mouse is clicked
         current_points.append((x, y))
+
         # If four points are clicked, store the quadrilateral and reset current_points
         if len(current_points) == 4:
             all_quadrilaterals.append(current_points)
