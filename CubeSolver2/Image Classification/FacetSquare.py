@@ -111,9 +111,9 @@ if first_phase_complete or all(len(squares[face]) == 9 for face in ['front', 'le
     cap.release()
     cv2.destroyAllWindows()
 
-# Final output of all squares
-print("\nFinal Squares Data:")
-for face, square_list in squares.items():
-    for square in square_list:
-        print(f"{square[0]}: Top-Left: ({square[1]}, {square[2]}), Width: {square[3]}, Height: {square[4]}")
+    # Final output of all squares
+    print("\nFinal Squares Data:")
+    for face, square_list in squares.items():
+        for square in square_list:
+            print(f"{square[0]}: Top-Left: ({square[1]}, {square[2]}), Width: {square[3]}, Height: {square[4]}")
 '''

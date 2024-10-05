@@ -4,38 +4,18 @@ import joblib
 import numpy as np
 import colorsys
 import matplotlib.pyplot as plt
+import os
+import ast
 model = joblib.load('decision_tree-v4-7.joblib')
 colors = ['B', 'G', 'O', 'R', 'W', 'Y']
 colors.sort()
-polygons = {
-    'U1': (184, 160, 37, 12),
-    'U2': (247, 146, 32, 32),
-    'U3': (297, 137, 32, 32),
-    'U4': (226, 172, 32, 32),
-    'U5': (295, 163, 32, 32),  # Center of top face
-    'U6': (348, 146, 24, 19),
-    'U7': (279, 191, 32, 32),
-    'U8': (348, 176, 32, 32),
-    'U9': (408, 164, 32, 32),
-    'L1': (151, 198, 26, 26),
-    'L2': (198, 212, 32, 32),
-    'L3': (243, 231, 32, 32),
-    'L4': (154, 263, 32, 32),
-    'L5': (198, 289, 32, 32),  # Center of left face
-    'L6': (249, 314, 32, 32),
-    'L7': (159, 331, 32, 32),
-    'L8': (201, 359, 32, 32),
-    'L9': (265, 394, 32, 35),
-    'R1': (312, 233, 32, 32),
-    'R2': (375, 219, 32, 32),
-    'R3': (432, 202, 32, 32),
-    'R4': (311, 325, 32, 32),
-    'R5': (375, 299, 32, 32),  # Center of right face
-    'R6': (427, 273, 32, 32),
-    'R7': (312, 402, 32, 32),
-    'R8': (366, 366, 32, 32),
-    'R9': (417, 341, 32, 32),
-}
+polygons = {}
+
+with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Image Classification", "Polygons.txt")) as file:
+    for line in file:
+        line = line.strip().rstrip(',')
+        key_value = ast.literal_eval(f"{{{line}}}")
+        polygons.update(key_value)
 
 color_map = {
     'B': 'blue',
@@ -46,6 +26,19 @@ color_map = {
     'Y': 'yellow'
 }
 
+
+def setup_camera_focus(cap):
+    autofocus_supported = cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    if autofocus_supported:
+        print("Autofocus disabled successfully")
+    else:
+        print("Autofocus disabling is not supported")
+    focus_supported = cap.set(cv2.CAP_PROP_FOCUS, 50)  # Set focus to a specific level (adjust 10 to fit your needs)
+    if focus_supported:
+        print("Focus set successfully")
+    else:
+        print("Manual focus setting is not supported on this camera")
+
 def get_dominant_hsv(img):
     average = img.mean(axis=0).mean(axis=0)
     pixels = np.float32(img.reshape(-1, 3))
@@ -54,9 +47,7 @@ def get_dominant_hsv(img):
     flags = cv2.KMEANS_RANDOM_CENTERS
     _, labels, palette = cv2.kmeans(pixels, n_colors, None, criteria, 10, flags)
     _, counts = np.unique(labels, return_counts=True)
-    # Dominant BGR
     (b, g, r) = palette[np.argmax(counts)]
-    # Convert BGR to HSV
     (h, s, v) = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
     return (h * 360, s * 100, v * 100)
 
@@ -83,33 +74,35 @@ def show_polygons(img, label_to_predict):
 
 def draw_cube_visualization(label_to_predict):
     face_mapping = {
-        'U': [[colors[label_to_predict[f'U{i}']] for i in range(1, 4)],
-              [colors[label_to_predict[f'U{i}']] for i in range(4, 7)],
-              [colors[label_to_predict[f'U{i}']] for i in range(7, 10)]],
+        'F': [[colors[label_to_predict[f'F{i}']] for i in range(1, 4)],
+              [colors[label_to_predict[f'F{i}']] for i in range(4, 7)],
+              [colors[label_to_predict[f'F{i}']] for i in range(7, 10)]],
         'L': [[colors[label_to_predict[f'L{i}']] for i in range(1, 4)],
               [colors[label_to_predict[f'L{i}']] for i in range(4, 7)],
               [colors[label_to_predict[f'L{i}']] for i in range(7, 10)]],
-        'R': [[colors[label_to_predict[f'R{i}']] for i in range(1, 4)],
-              [colors[label_to_predict[f'R{i}']] for i in range(4, 7)],
-              [colors[label_to_predict[f'R{i}']] for i in range(7, 10)]],
+        'D': [[colors[label_to_predict[f'D{i}']] for i in range(1, 4)],
+              [colors[label_to_predict[f'D{i}']] for i in range(4, 7)],
+              [colors[label_to_predict[f'D{i}']] for i in range(7, 10)]],
     }
     plt.figure(figsize=(6, 6))
     plt.axis('off')
     for i in range(3):
         for j in range(3):
-            color = color_map[face_mapping['U'][i][j]]
-            plt.text(j, 6 - i, face_mapping['U'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color, edgecolor='black'))
+            color = color_map[face_mapping['F'][i][j]]
+            plt.text(j, 6 - i, face_mapping['F'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color, edgecolor='black'))
     for i in range(3):
         for j in range(3):
             color_left = color_map[face_mapping['L'][i][j]]
-            color_right = color_map[face_mapping['R'][i][j]]
+            color_right = color_map[face_mapping['D'][i][j]]
             plt.text(j - 3, 3 - i, face_mapping['L'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color_left, edgecolor='black'))
-            plt.text(j + 3, 3 - i, face_mapping['R'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color_right, edgecolor='black'))
+            plt.text(j + 3, 3 - i, face_mapping['D'][i][j], ha='center', va='center', fontsize=18, bbox=dict(facecolor=color_right, edgecolor='black'))
     plt.xlim(-4, 4)
     plt.ylim(-4, 8)
     plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+setup_camera_focus(cap)
 capture_interval = 5  # seconds
 last_capture_time = time.time()
 last_processed_frame = None
