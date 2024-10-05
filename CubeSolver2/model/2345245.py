@@ -26,7 +26,6 @@ matplotlib.use('TkAgg')
 from PIL import Image
 import ast
 
-
 base_drive_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 training_data_dir = os.path.join(base_drive_dir, 'training')
 testing_data_dir = os.path.join(base_drive_dir, 'testing')
@@ -38,6 +37,7 @@ img_height = 96
 img_width = 96
 
 training_file_list = glob.glob(os.path.join(training_data_dir, '*png'))
+print(training_file_list)
 testing_file_list = glob.glob(os.path.join(testing_data_dir, '*png'))
 print(training_file_list[0])
 
@@ -117,6 +117,7 @@ def generate_input_vector(file_list):
     inputs = []
     outputs = []
     for f in file_list:
+        print(f)
         img = cv2.imread(f)
         (h, s, v) = get_dominant_hsv(img)
         label = os.path.basename(f).split('.')[0]
@@ -130,8 +131,8 @@ def generate_input_vector(file_list):
 (inputs, outputs) = generate_input_vector(training_file_list)
 clf = tree.DecisionTreeClassifier()
 clf = clf.fit(inputs, outputs)
-dump(clf, dt_model_name)
-clf = load(dt_model_name)
+dump(clf, os.path.join(model_dir, dt_model_name))
+clf = load(os.path.join(model_dir, dt_model_name))
 (test_inputs, test_outputs) = generate_input_vector(testing_file_list)
 predicts = clf.predict(test_inputs)
 print(export_text(clf))
